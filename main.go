@@ -90,7 +90,7 @@ func InitDb() {
 	if err != nil {
 		fmt.Println("Connection to database Failed:", err)
 	} else {
-		fmt.Println("Connection to database Successful")
+		fmt.Println("Successfully connected to the Gitlab database")
 	}
 
 }
