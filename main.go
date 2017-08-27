@@ -1,21 +1,25 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
-	_ "io/ioutil"
+	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 const (
-	host     = "192.168.163.196"
-	port     = 5432
-	user     = "gitlab"
-	password = "Aa111111"
-	dbname   = "gitlabhq_production"
+	host         = "192.168.163.196"
+	port         = 5432
+	user         = "gitlab"
+	password     = "Aa111111"
+	dbname       = "gitlabhq_production"
+	gitlab_base  = "http://192.168.163.196:10080"
+	gitlab_token = "K8F8SZEHyq4Dm9osdTT3"
 )
 
 var Db *sql.DB
@@ -62,14 +66,28 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	fmt.Println(h.ObjectKind)
 	fmt.Println(h.ObjectAttributes.Id)
 	fmt.Println(h)
-	id, err := CheckStatus(h)
-	if err != nil && err.Error() == "sql: no rows in result set" {
-		fmt.Println("No ROws!!")
-	} else if err != nil {
-		panic(err)
-	}
-	fmt.Println("working id:", id)
+	if h.ObjectKind == "merge_request" {
+		fmt.Println("object is merge request")
+		id, err := CheckStatus(h)
+		if err != nil && err.Error() == "sql: no rows in result set" {
+			fmt.Println("No ROws!!")
+		} else if err != nil {
+			panic(err)
+		}
+		fmt.Println("working id:", id)
 
+		count, err := CheckInitial(h)
+		if err == nil && count != 0 {
+			fmt.Println("Number Of Comments:", count)
+		} else if err == nil && count == 0 {
+			InitialComment(h)
+			//	if err != nil {
+			//		panic(err)
+			//	}
+		} else {
+			panic(err)
+		}
+	}
 	/*
 		read, _ := ioutil.ReadAll(r.Body)
 		fmt.Println(string(read))
@@ -107,4 +125,45 @@ func CheckStatus(h hook) (int, error) {
 	} else {
 		return id, nil
 	}
+}
+
+func CheckInitial(h hook) (int, error) {
+	fmt.Println("Check Initial")
+	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and m.iid = $1 and target_project_id = $2;`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
+	var count int
+	err := row.Scan(&count)
+	if err != nil {
+		fmt.Println("Error in select:", err)
+		return 0, err
+	} else {
+		return count, nil
+	}
+}
+
+func InitialComment(h hook) {
+	message := "This is GitlabBot"
+	Post(message, h)
+}
+
+func Post(message string, h hook) {
+
+	//	var mes = []byte(message)
+	fmt.Println("iid:", h.ObjectAttributes.Iid, "targetprojectid:", h.ObjectAttributes.targetProjectId)
+	//	fmt.Println(string(mes))
+	form := url.Values{}
+	form.Add("body", message)
+	r, err := http.NewRequest("POST", gitlab_base+"/api/v3/projects/"+string(h.ObjectAttributes.TargetProjectId)+"/merge_requests/"+string(h.ObjectAttributes.Iid)+"/notes", bytes.NewBufferString(form.Encode()))
+	r.Header.Set("PRIVATE-TOKEN", gitlab_token)
+
+	client := &http.Client{}
+	resp, err := client.Do(r)
+	if err != nil {
+		panic(err)
+	}
+	defer resp.Body.Close()
+
+	fmt.Println("response Status:", resp.Status)
+	fmt.Println("response Headers:", resp.Header)
+	body, _ := ioutil.ReadAll(resp.Body)
+	fmt.Println("response Body:", string(body))
 }
