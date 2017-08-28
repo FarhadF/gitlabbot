@@ -14,13 +14,14 @@ import (
 )
 
 const (
-	host         = "192.168.163.196"
-	port         = 5432
-	user         = "gitlab"
-	password     = "Aa111111"
-	dbname       = "gitlabhq_production"
-	gitlab_base  = "http://192.168.163.196:10080"
-	gitlab_token = "K8F8SZEHyq4Dm9osdTT3"
+	host          = "192.168.163.196"
+	port          = 5432
+	user          = "gitlab"
+	password      = "Aa111111"
+	dbname        = "gitlabhq_production"
+	gitlabBase    = "http://192.168.163.196:10080"
+	gitlabToken   = "K8F8SZEHyq4Dm9osdTT3"
+	lgtmTreashold = 2
 )
 
 var Db *sql.DB
@@ -80,6 +81,12 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		count, err := CheckInitial(h)
 		if err == nil && count != 0 {
 			fmt.Println("Number Of Comments:", count)
+			lgtms, err := CheckLGTM(h)
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println("Number of LGTMs:", lgtms)
+
 		} else if err == nil && count == 0 {
 			InitialComment(h)
 			//	if err != nil {
@@ -88,7 +95,10 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		} else {
 			panic(err)
 		}
+	} else if h.ObjectKind == "note" {
+		fmt.Println("note")
 	}
+
 	/*
 		read, _ := ioutil.ReadAll(r.Body)
 		fmt.Println(string(read))
@@ -130,7 +140,7 @@ func CheckStatus(h hook) (int, error) {
 
 func CheckInitial(h hook) (int, error) {
 	fmt.Println("Check Initial")
-	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and m.iid = $1 and target_project_id = $2;`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
+	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and m.iid = $1 and target_project_id = $2`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -142,7 +152,7 @@ func CheckInitial(h hook) (int, error) {
 }
 
 func InitialComment(h hook) {
-	message := "This is GitlabBot"
+	message := `Total number of unique LGTMs need to be 2. After that this request will be Merged!`
 	Post(message, h)
 }
 
@@ -153,8 +163,8 @@ func Post(message string, h hook) {
 	//	fmt.Println(string(mes))
 	form := url.Values{}
 	form.Add("body", message)
-	r, err := http.NewRequest("POST", gitlab_base+"/api/v3/projects/"+strconv.Itoa(h.ObjectAttributes.TargetProjectId)+"/merge_requests/"+strconv.Itoa(h.ObjectAttributes.Iid)+"/notes", bytes.NewBufferString(form.Encode()))
-	r.Header.Set("PRIVATE-TOKEN", gitlab_token)
+	r, err := http.NewRequest("POST", gitlabBase+"/api/v3/projects/"+strconv.Itoa(h.ObjectAttributes.TargetProjectId)+"/merge_requests/"+strconv.Itoa(h.ObjectAttributes.Iid)+"/notes", bytes.NewBufferString(form.Encode()))
+	r.Header.Set("PRIVATE-TOKEN", gitlabToken)
 
 	client := &http.Client{}
 	resp, err := client.Do(r)
@@ -167,4 +177,30 @@ func Post(message string, h hook) {
 	fmt.Println("response Headers:", resp.Header)
 	body, _ := ioutil.ReadAll(resp.Body)
 	fmt.Println("response Body:", string(body))
+}
+
+func CheckLGTM(h hook) (int, error) {
+	row := Db.QueryRow(`select id FROM notes where noteable_id = $1 and noteable_type = 'MergeRequest' and system = 't' and note like 'Added % commit%' order by id desc limit 1`, h.ObjectAttributes.Iid)
+	var iid int
+	err := row.Scan(&iid)
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		iid = 0
+	} else if err != nil {
+		fmt.Println("Error in select:", err)
+		return 0, err
+	}
+	var lgtms int
+	row1 := Db.QueryRow(`select count(distinct u.username) from notes as n, users as u where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequest' and u.username != 'GitlabBot' and n.id > $2 and n.system = 'f' and note LIKE '%LGTM%'`, h.ObjectAttributes.Iid, iid)
+	err = row1.Scan(&lgtms)
+	if err != nil && err.Error() == "sql: no rows in result set" {
+		fmt.Println("im here")
+		return 0, nil
+
+	} else if err != nil {
+		fmt.Println("Error in select:", err)
+		return 0, err
+	} else {
+		return lgtms, nil
+	}
+
 }
