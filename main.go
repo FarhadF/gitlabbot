@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 const (
@@ -148,11 +149,11 @@ func InitialComment(h hook) {
 func Post(message string, h hook) {
 
 	//	var mes = []byte(message)
-	fmt.Println("iid:", h.ObjectAttributes.Iid, "targetprojectid:", h.ObjectAttributes.targetProjectId)
+	fmt.Println("iid:", h.ObjectAttributes.Iid, "targetprojectid:", h.ObjectAttributes.TargetProjectId)
 	//	fmt.Println(string(mes))
 	form := url.Values{}
 	form.Add("body", message)
-	r, err := http.NewRequest("POST", gitlab_base+"/api/v3/projects/"+string(h.ObjectAttributes.TargetProjectId)+"/merge_requests/"+string(h.ObjectAttributes.Iid)+"/notes", bytes.NewBufferString(form.Encode()))
+	r, err := http.NewRequest("POST", gitlab_base+"/api/v3/projects/"+strconv.Itoa(h.ObjectAttributes.TargetProjectId)+"/merge_requests/"+strconv.Itoa(h.ObjectAttributes.Iid)+"/notes", bytes.NewBufferString(form.Encode()))
 	r.Header.Set("PRIVATE-TOKEN", gitlab_token)
 
 	client := &http.Client{}
