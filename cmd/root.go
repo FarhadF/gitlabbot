@@ -23,20 +23,29 @@ import (
 )
 
 var cfgFile string
+var (
+	dbhost        string
+	dbPort        int
+	dbName        string
+	dbUser        string
+	dbPassword    string
+	gitlabBase    string
+	gitlabToken   string
+	lgtmTreashold int
+)
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
 	Use:   "gitlabbot",
-	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Gitlab Munger",
+	Long: `Golang implementation of Gitlab Munger, with following features:
+- Commenting
+- Merging
+- LGTM Counts
+Using Gitlab database as well as webhook on the project.`,
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	Run: rootCmd,
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -48,7 +57,34 @@ func Execute() {
 	}
 }
 
-func init() { 
+func rootCmd(cmd *cobra.Command, args []string) {
+	if versionFlag := getFlagBoolPtr(cmd, "version"); versionFlag != nil {
+		fmt.Println("GitlabBot v1.0.0")
+	} else {
+		gitlabbot(dbHost, dbPort, dbName, dbUser, dbPassword, gitlabBase, gitlabToken, lgtmTreashold)
+	}
+}
+
+func getFlagBoolPtr(cmd *cobra.Command, flag string) *bool {
+	f := cmd.Flags().Lookup(flag)
+	if f == nil {
+		log.Printf("Flag accessed but not defined for command %s: %s", cmd.Name(), flag)
+	}
+	// Check if flag was not set at all.
+	if !f.Changed && f.DefValue == f.Value.String() {
+		return nil
+	}
+	var ret bool
+	// Caseless compare.
+	if strings.ToLower(f.Value.String()) == "true" {
+		ret = true
+	} else {
+		ret = false
+	}
+	return &ret
+}
+
+func init() {
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
