@@ -1,4 +1,4 @@
-# gitlabbot
+# GitlabBot
 GitlabBot is a gitlab merge request munger, with useful features.
 
 ```
