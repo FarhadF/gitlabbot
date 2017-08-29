@@ -45,8 +45,8 @@ type hook struct {
 	ProjectId int `json:"project_id"`
 }
 
-func gitlabbot(dbhost string, dbport int, dbuser string, dbpassword string, dbname string, gitlabBase string, gitlabToken string, lgtmTreashold int) {
-	InitDb()
+func gitlabbot(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string, gitlabToken string, lgtmTreashold int) {
+	InitDb(dbhost, dbport, dbname, dbuser, dbpassword, gitlabBase, gitlabToken, lgtmTreashold)
 	router := httprouter.New()
 	router.POST("/", Handle)
 	err := http.ListenAndServe(":3000", router)
@@ -110,7 +110,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	*/
 }
 
-func InitDb() {
+func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string, gitlabToken string, lgtmTreashold int) {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		dbhost, dbport, dbuser, dbpassword, dbname)

@@ -20,6 +20,8 @@ import (
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"log"
+	"strings"
 )
 
 var cfgFile string
@@ -92,8 +94,8 @@ func init() {
 	// will be global for your application.
 
 	RootCmd.Flags().BoolP("version", "v", false, "Prints version info")
-	RootCmd.Flags().StringVarP(&dbHost, "dbhost", "h", "localhost", "Postgres database Hostname/IPAddress")
-	RootCmd.Flags().IntVarP(&dbPort, "dbport", "P", "5432", "Postgres database port number")
+	RootCmd.Flags().StringVarP(&dbHost, "dbhost", "H", "localhost", "Postgres database Hostname/IPAddress")
+	RootCmd.Flags().IntVarP(&dbPort, "dbport", "P", 5432, "Postgres database port number")
 	RootCmd.Flags().StringVarP(&dbName, "dbname", "n", "gitlabhq_production", "Gitlab database name")
 	RootCmd.Flags().StringVarP(&dbUser, "dbuser", "u", "gitlab", "Gitlab database username")
 	RootCmd.Flags().StringVarP(&dbPassword, "dbpassword", "p", `Aa111111`, "Gitlab database password")
@@ -103,7 +105,7 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	//RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 }
 
 // initConfig reads in config file and ENV variables if set.
