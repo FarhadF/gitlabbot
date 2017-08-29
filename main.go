@@ -14,10 +14,10 @@ import (
 )
 
 const (
-	host          = "192.168.163.196"
-	port          = 5432
-	user          = "gitlab"
-	password      = "Aa111111"
+	dbhost        = "192.168.163.196"
+	dbport        = 5432
+	dbuser        = "gitlab"
+	dbpassword    = "Aa111111"
 	dbname        = "gitlabhq_production"
 	gitlabBase    = "http://192.168.163.196:10080"
 	gitlabToken   = "K8F8SZEHyq4Dm9osdTT3"
@@ -113,7 +113,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 func InitDb() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
+		dbhost, dbport, dbuser, dbpassword, dbname)
 	var err error
 	Db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
