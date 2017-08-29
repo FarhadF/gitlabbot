@@ -1,6 +1,7 @@
 # GitlabBot
 GitlabBot is a gitlab merge request munger, with useful features.
 
+Usage:
 ```
 Golang implementation of Gitlab Munger, with following features:
 - Commenting
@@ -24,3 +25,9 @@ Flags:
   -v, --version              Prints version info
 
 ```
+
+Setup: 
+1. Create an access token with and elavated user on the project in gitlab.
+2. Clone and build.
+3. Run the binary specifying the required parameters.
+4. Go to gitlab, Create a merge request, You should see the bot commenting help messages there.
