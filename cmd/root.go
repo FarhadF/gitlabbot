@@ -24,7 +24,7 @@ import (
 
 var cfgFile string
 var (
-	dbhost        string
+	dbHost        string
 	dbPort        int
 	dbName        string
 	dbUser        string
@@ -90,7 +90,16 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gitlabbot.yaml)")
+
+	RootCmd.Flags().BoolP("version", "v", false, "Prints version info")
+	RootCmd.Flags().StringVarP(&dbHost, "dbhost", "h", "localhost", "Postgres database Hostname/IPAddress")
+	RootCmd.Flags().IntVarP(&dbPort, "dbport", "P", "5432", "Postgres database port number")
+	RootCmd.Flags().StringVarP(&dbName, "dbname", "n", "gitlabhq_production", "Gitlab database name")
+	RootCmd.Flags().StringVarP(&dbUser, "dbuser", "u", "gitlab", "Gitlab database username")
+	RootCmd.Flags().StringVarP(&dbPassword, "dbpassword", "p", `Aa111111`, "Gitlab database password")
+	RootCmd.Flags().StringVarP(&gitlabBase, "gitlabbase", "b", "http://localhost:10080", "Gitlab user token for API access")
+	RootCmd.Flags().StringVarP(&gitlabToken, "gitlabtoken", "t", "K8F8SZEHyq4Dm9osdTT3", "Gitlab user token for API access")
+	RootCmd.Flags().IntVarP(&lgtmTreashold, "lgtmtreashold", "l", 2, "Number of LGTMs required to merge the request")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
