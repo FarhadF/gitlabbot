@@ -99,7 +99,7 @@ func init() {
 	RootCmd.Flags().StringVarP(&dbName, "dbname", "n", "gitlabhq_production", "Gitlab database name")
 	RootCmd.Flags().StringVarP(&dbUser, "dbuser", "u", "gitlab", "Gitlab database username")
 	RootCmd.Flags().StringVarP(&dbPassword, "dbpassword", "p", `Aa111111`, "Gitlab database password")
-	RootCmd.Flags().StringVarP(&gitlabBase, "gitlabbase", "b", "http://localhost:10080", "Gitlab user token for API access")
+	RootCmd.Flags().StringVarP(&gitlabBase, "gitlabbase", "b", "http://localhost:10080", "Gitlab base url")
 	RootCmd.Flags().StringVarP(&gitlabToken, "gitlabtoken", "t", "K8F8SZEHyq4Dm9osdTT3", "Gitlab user token for API access")
 	RootCmd.Flags().IntVarP(&lgtmTreashold, "lgtmtreashold", "l", 2, "Number of LGTMs required to merge the request")
 

@@ -17,7 +17,7 @@ Flags:
   -p, --dbpassword string    Gitlab database password (default "Aa111111")
   -P, --dbport int           Postgres database port number (default 5432)
   -u, --dbuser string        Gitlab database username (default "gitlab")
-  -b, --gitlabbase string    Gitlab user token for API access (default "http://localhost:10080")
+  -b, --gitlabbase string    Gitlab base url (default "http://localhost:10080")
   -t, --gitlabtoken string   Gitlab user token for API access (default "K8F8SZEHyq4Dm9osdTT3")
   -h, --help                 help for gitlabbot
   -l, --lgtmtreashold int    Number of LGTMs required to merge the request (default 2)
