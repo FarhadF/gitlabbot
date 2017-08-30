@@ -27,7 +27,7 @@ Flags:
 ```
 
 Setup: 
-1. Create an access token with and elavated user on the project in gitlab.
+1. Create user and name it "GitlabBot" then create an access token with and elevate it to admin priveleges on your project in gitlab.
 2. Clone and build.
 3. Run the binary specifying the required parameters.
 4. Go to gitlab, Create a merge request, You should see the bot commenting help messages there.
