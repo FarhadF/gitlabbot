@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
+	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
-	_"go.uber.org/zap"
 )
 
 /*const (
@@ -26,6 +26,7 @@ import (
 )
 */
 var Db *sql.DB
+var Logger *zap.Logger
 
 type hook struct {
 	ObjectKind       string `json:"object_kind"`
@@ -48,13 +49,29 @@ type hook struct {
 
 func gitlabbot(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string,
 	gitlabToken string, lgtmTreashold int) {
+	//Logger, _ = zap.NewDevelopment()
+	//defer Logger.Sync()
+	err := InitLogger()
+	if err != nil {
+		panic(err)
+	}
 	InitDb(dbhost, dbport, dbname, dbuser, dbpassword, gitlabBase, gitlabToken, lgtmTreashold)
 	router := httprouter.New()
 	router.POST("/", Handle)
-	err := http.ListenAndServe(":3000", router)
+	err = http.ListenAndServe(":3000", router)
 	if err != nil {
-		panic("listen and serve:")
+		Logger.Error("listen and serve:", zap.String("error:", err.Error()))
 	}
+}
+
+func InitLogger() error {
+	var err error
+	Logger, err = zap.NewDevelopment()
+	defer Logger.Sync()
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
@@ -125,9 +142,12 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 	//defer Db.Close()
 	err = Db.Ping()
 	if err != nil {
-		fmt.Println("Connection to database Failed:", err)
+		//fmt.Println("Connection to database Failed:", err)
+		Logger.Error("Connection to database Failed", zap.String("Error", err.Error()))
+
 	} else {
-		fmt.Println("Successfully connected to the Gitlab database")
+		//fmt.Println("Successfully connected to the Gitlab database")
+		Logger.Info("Successfully connected to the Gitlab database")
 	}
 
 }
