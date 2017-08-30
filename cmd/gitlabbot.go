@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	_"go.uber.org/zap"
 )
 
 /*const (
@@ -45,7 +46,8 @@ type hook struct {
 	ProjectId int `json:"project_id"`
 }
 
-func gitlabbot(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string, gitlabToken string, lgtmTreashold int) {
+func gitlabbot(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string,
+	gitlabToken string, lgtmTreashold int) {
 	InitDb(dbhost, dbport, dbname, dbuser, dbpassword, gitlabBase, gitlabToken, lgtmTreashold)
 	router := httprouter.New()
 	router.POST("/", Handle)
@@ -110,7 +112,8 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	*/
 }
 
-func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string, gitlabToken string, lgtmTreashold int) {
+func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string,
+	gitlabToken string, lgtmTreashold int) {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		dbhost, dbport, dbuser, dbpassword, dbname)
@@ -132,7 +135,8 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 //Check the status of Merge Request, Im Processing Open and Not Merged only.
 func CheckStatus(h hook) (int, error) {
 	fmt.Println("beforequery:", h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
-	row := Db.QueryRow(`SELECT id FROM merge_requests WHERE target_project_id = $1 AND iid = $2 AND state != 'closed' AND state != 'merged'`, h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
+	row := Db.QueryRow(`SELECT id FROM merge_requests WHERE target_project_id = $1 AND iid = $2 AND
+ state != 'closed' AND state != 'merged'`, h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 	var id int
 	err := row.Scan(&id)
 	if err != nil {
@@ -145,7 +149,8 @@ func CheckStatus(h hook) (int, error) {
 
 func CheckInitial(h hook) (int, error) {
 	fmt.Println("Check Initial")
-	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and m.iid = $1 and target_project_id = $2`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
+	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and
+ m.iid = $1 and target_project_id = $2`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -171,9 +176,11 @@ func Post(message string, h hook) {
 	client := &http.Client{}
 	var u string
 	if h.ObjectKind == "merge_request" {
-		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ObjectAttributes.TargetProjectId) + "/merge_requests/" + strconv.Itoa(h.ObjectAttributes.Iid) + "/notes"
+		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ObjectAttributes.TargetProjectId) + "/merge_requests/" +
+			strconv.Itoa(h.ObjectAttributes.Iid) + "/notes"
 	} else if h.ObjectKind == "note" {
-		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" + strconv.Itoa(h.MergeRequest.Iid) + "/notes"
+		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
+			strconv.Itoa(h.MergeRequest.Iid) + "/notes"
 	} else {
 		u = ""
 	}
@@ -200,7 +207,8 @@ func CheckLGTM(h hook) (int, error) {
 		iiid = h.MergeRequest.Iid
 	}
 
-	row := Db.QueryRow(`select id FROM notes where noteable_id = $1 and noteable_type = 'MergeRequest' and system = 't' and note like 'Added % commit%' order by id desc limit 1`, iiid)
+	row := Db.QueryRow(`select id FROM notes where noteable_id = $1 and noteable_type = 'MergeRequest' and
+ system = 't' and note like 'Added % commit%' order by id desc limit 1`, iiid)
 	var iid int
 	err := row.Scan(&iid)
 	if err != nil && err.Error() == "sql: no rows in result set" {
@@ -211,7 +219,9 @@ func CheckLGTM(h hook) (int, error) {
 	}
 	var lgtms int
 	//get number of LGTMs
-	row1 := Db.QueryRow(`select count(distinct u.username) from notes as n, users as u, merge_requests as m where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequest' and u.username != 'GitlabBot' and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note LIKE '%LGTM%'`, iiid, iiid, iid)
+	row1 := Db.QueryRow(`select count(distinct u.username) from notes as n, users as u, merge_requests as m
+where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequest' and u.username != 'GitlabBot'
+and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note LIKE '%LGTM%'`, iiid, iiid, iid)
 	err = row1.Scan(&lgtms)
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		fmt.Println("im here")
@@ -228,7 +238,9 @@ func CheckLGTM(h hook) (int, error) {
 func CommentLGTM(h hook) error {
 	fmt.Println("Comment LGTM")
 	fmt.Println(h.MergeRequest.Iid)
-	row := Db.QueryRow(`SELECT n.note FROM notes AS n, users AS u WHERE n.noteable_id = $1 AND u.id = n.author_id AND n.noteable_type = 'MergeRequest' AND u.username = 'GitlabBot' AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`, h.MergeRequest.Iid)
+	row := Db.QueryRow(`SELECT n.note FROM notes AS n, users AS u WHERE n.noteable_id = $1 AND u.id = n.author_id
+ AND n.noteable_type = 'MergeRequest' AND u.username = 'GitlabBot' AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`,
+		h.MergeRequest.Iid)
 	var lastComment string
 	err := row.Scan(&lastComment)
 	if err != nil && err.Error() == "sql: no rows in result set" {
@@ -241,7 +253,8 @@ func CommentLGTM(h hook) error {
 	lgtms, err := CheckLGTM(h)
 	fmt.Println("lgtms:", lgtms)
 	if lgtms < lgtmTreashold {
-		newComment = "Current number of LGTMs: " + strconv.Itoa(lgtms) + " Number of LGTMs required: " + strconv.Itoa(lgtmTreashold-lgtms)
+		newComment = "Current number of LGTMs: " + strconv.Itoa(lgtms) + " Number of LGTMs required: " +
+			strconv.Itoa(lgtmTreashold-lgtms)
 	} else {
 		mergable, err := CheckMergable(h)
 		if err == nil && mergable == "can_be_merged" {
@@ -281,7 +294,8 @@ func CheckMergable(h hook) (string, error) {
 func Put(h hook) {
 	fmt.Println("Put")
 	client := &http.Client{}
-	u := gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" + strconv.Itoa(h.MergeRequest.Iid) + "/merge"
+	u := gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
+		strconv.Itoa(h.MergeRequest.Iid) + "/merge"
 	r, err := http.NewRequest("PUT", u, nil)
 	r.Header.Set("PRIVATE-TOKEN", gitlabToken)
 	resp, err := client.Do(r)
