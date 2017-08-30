@@ -8,7 +8,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
-	"io/ioutil"
+	//"io/ioutil"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -82,30 +82,39 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	err := json.NewDecoder(r.Body).Decode(&h)
 
 	if err != nil {
-		panic(err)
+		//panic(err)
+		Logger.Panic("Parsing hook json Failed", zap.String("error", err.Error()))
 	}
 
-	fmt.Println(h.ObjectKind)
-	fmt.Println(h.ObjectAttributes.Id)
-	fmt.Println(h)
+	//fmt.Println(h.ObjectKind)
+	Logger.Info("", zap.String("objectkind", h.ObjectKind))
+	//fmt.Println(h.ObjectAttributes.Id)
+	Logger.Info("", zap.String("Id", strconv.Itoa(h.ObjectAttributes.Id)))
+	//fmt.Println(h)
 	if h.ObjectKind == "merge_request" {
-		fmt.Println("object is merge request")
+		//fmt.Println("object is merge request")
+		Logger.Info("object is merge request")
 		id, err := CheckStatus(h)
 		if err != nil && err.Error() == "sql: no rows in result set" {
-			fmt.Println("No ROws!!")
+			//fmt.Println("No ROws!!")
+			Logger.Info("No Rows!")
 		} else if err != nil {
 			panic(err)
 		}
-		fmt.Println("working id:", id)
+		//fmt.Println("working id:", id)
+		Logger.Info("", zap.String("working id", strconv.Itoa(id)))
 
 		count, err := CheckInitial(h)
 		if err == nil && count != 0 {
-			fmt.Println("Number Of Comments:", count)
+			//fmt.Println("Number Of Comments:", count)
+			Logger.Info("", zap.String("number of comments", strconv.Itoa(count)))
 			lgtms, err := CheckLGTM(h)
 			if err != nil {
-				panic(err)
+				//panic(err)
+				Logger.Panic("Error checking LGTMs", zap.String("error", err.Error()))
 			}
-			fmt.Println("Number of LGTMs:", lgtms)
+			//fmt.Println("Number of LGTMs:", lgtms)
+			Logger.Info("", zap.String("Number of LGTMs", strconv.Itoa(lgtms)))
 
 		} else if err == nil && count == 0 {
 			InitialComment(h)
@@ -113,13 +122,16 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			//		panic(err)
 			//	}
 		} else {
-			panic(err)
+			//panic(err)
+			Logger.Panic("Error in checkInitial", zap.String("Error", err.Error()))
 		}
 	} else if h.ObjectKind == "note" {
-		fmt.Println("note")
+		//fmt.Println("note")
+
 		err := CommentLGTM(h)
 		if err != nil {
-			panic(err)
+			//panic(err)
+			Logger.Panic("Error in comment LGTM", zap.String("error", err.Error()))
 		}
 	}
 
@@ -137,7 +149,8 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 	var err error
 	Db, err = sql.Open("postgres", psqlInfo)
 	if err != nil {
-		panic(err)
+		//panic(err)
+		Logger.Panic("Error in Initializing DB", zap.String("error", err.Error()))
 	}
 	//defer Db.Close()
 	err = Db.Ping()
@@ -160,7 +173,8 @@ func CheckStatus(h hook) (int, error) {
 	var id int
 	err := row.Scan(&id)
 	if err != nil {
-		fmt.Println("Error in select:", err)
+		//fmt.Println("Error in select:", err)
+		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
 	} else {
 		return id, nil
@@ -168,13 +182,14 @@ func CheckStatus(h hook) (int, error) {
 }
 
 func CheckInitial(h hook) (int, error) {
-	fmt.Println("Check Initial")
+	//fmt.Println("Check Initial")
 	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and
  m.iid = $1 and target_project_id = $2`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
-		fmt.Println("Error in select:", err)
+		//fmt.Println("Error in select:", err)
+		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
 	} else {
 		return count, nil
@@ -189,7 +204,7 @@ func InitialComment(h hook) {
 func Post(message string, h hook) {
 
 	//	var mes = []byte(message)
-	fmt.Println("iid:", h.ObjectAttributes.Iid, "targetprojectid:", h.ObjectAttributes.TargetProjectId)
+	//fmt.Println("iid:", h.ObjectAttributes.Iid, "targetprojectid:", h.ObjectAttributes.TargetProjectId)
 	//	fmt.Println(string(mes))
 	form := url.Values{}
 	form.Add("body", message)
@@ -208,14 +223,16 @@ func Post(message string, h hook) {
 	r.Header.Set("PRIVATE-TOKEN", gitlabToken)
 	resp, err := client.Do(r)
 	if err != nil {
-		panic(err)
+		//panic(err)
+		Logger.Panic("Post Error", zap.String("error", err.Error()))
 	}
 	defer resp.Body.Close()
 
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	//fmt.Println("response Status:", resp.Status)
+	//fmt.Println("response Headers:", resp.Header)
+	//body, _ := ioutil.ReadAll(resp.Body)
+	//fmt.Println("response Body:", string(body))
+	Logger.Info("Post Response", zap.String("Status", resp.Status))
 }
 
 func CheckLGTM(h hook) (int, error) {
@@ -234,7 +251,8 @@ func CheckLGTM(h hook) (int, error) {
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		iid = 0
 	} else if err != nil {
-		fmt.Println("Error in select:", err)
+		//fmt.Println("Error in select:", err)
+		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
 	}
 	var lgtms int
@@ -244,11 +262,11 @@ where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequ
 and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note LIKE '%LGTM%'`, iiid, iiid, iid)
 	err = row1.Scan(&lgtms)
 	if err != nil && err.Error() == "sql: no rows in result set" {
-		fmt.Println("im here")
 		return 0, nil
 
 	} else if err != nil {
-		fmt.Println("Error in select:", err)
+		//fmt.Println("Error in select:", err)
+		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
 	} else {
 		return lgtms, nil
@@ -256,22 +274,22 @@ and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note 
 }
 
 func CommentLGTM(h hook) error {
-	fmt.Println("Comment LGTM")
-	fmt.Println(h.MergeRequest.Iid)
+	//fmt.Println("Comment LGTM")
+	//fmt.Println(h.MergeRequest.Iid)
 	row := Db.QueryRow(`SELECT n.note FROM notes AS n, users AS u WHERE n.noteable_id = $1 AND u.id = n.author_id
  AND n.noteable_type = 'MergeRequest' AND u.username = 'GitlabBot' AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`,
 		h.MergeRequest.Iid)
 	var lastComment string
 	err := row.Scan(&lastComment)
 	if err != nil && err.Error() == "sql: no rows in result set" {
-		fmt.Println(err)
+		//fmt.Println(err)
 		lastComment = "I have no comments here"
 	} else if err != nil {
 		return err
 	}
 	var newComment string
 	lgtms, err := CheckLGTM(h)
-	fmt.Println("lgtms:", lgtms)
+	//fmt.Println("lgtms:", lgtms)
 	if lgtms < lgtmTreashold {
 		newComment = "Current number of LGTMs: " + strconv.Itoa(lgtms) + " Number of LGTMs required: " +
 			strconv.Itoa(lgtmTreashold-lgtms)
@@ -283,16 +301,18 @@ func CommentLGTM(h hook) error {
 		} else if err == nil && mergable == "cannot_be_merged" {
 			newComment = "This merge request requires manual conflict resolution."
 		} else {
-			fmt.Println("mergable error:", err)
+			//fmt.Println("mergable error:", err)
+			Logger.Error("mergable error", zap.String("error", err.Error()))
 		}
 	}
 	if newComment != lastComment {
-		fmt.Println("Commenting:", newComment)
-		fmt.Println("last Comment:", lastComment)
+		//fmt.Println("Commenting:", newComment)
+		//fmt.Println("last Comment:", lastComment)
 		Post(newComment, h)
 		return nil
 	} else {
-		fmt.Println("Last Comment == New Comment, Standing down.")
+		//fmt.Println("Last Comment == New Comment, Standing down.")
+		Logger.Info("Last Comment == New Comment, Standing down")
 		return nil
 
 	}
@@ -300,7 +320,7 @@ func CommentLGTM(h hook) error {
 }
 
 func CheckMergable(h hook) (string, error) {
-	fmt.Println("Check Mergable")
+	//fmt.Println("Check Mergable")
 	row := Db.QueryRow(`SELECT m.merge_status FROM merge_requests AS m WHERE m.id = $1`, h.MergeRequest.Iid)
 	var mergeStatus string
 	err := row.Scan(&mergeStatus)
@@ -312,7 +332,7 @@ func CheckMergable(h hook) (string, error) {
 }
 
 func Put(h hook) {
-	fmt.Println("Put")
+	//fmt.Println("Put")
 	client := &http.Client{}
 	u := gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
 		strconv.Itoa(h.MergeRequest.Iid) + "/merge"
@@ -320,11 +340,13 @@ func Put(h hook) {
 	r.Header.Set("PRIVATE-TOKEN", gitlabToken)
 	resp, err := client.Do(r)
 	if err != nil {
-		panic(err)
+		//panic(err)
+		Logger.Panic("PUT error", zap.String("error", err.Error()))
 	}
 	defer resp.Body.Close()
-	fmt.Println("response Status:", resp.Status)
-	fmt.Println("response Headers:", resp.Header)
-	body, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println("response Body:", string(body))
+	//	fmt.Println("response Status:", resp.Status)
+	//	fmt.Println("response Headers:", resp.Header)
+	//	body, _ := ioutil.ReadAll(resp.Body)
+	//	fmt.Println("response Body:", string(body))
+	Logger.Info("PUT Response", zap.String("Status", resp.Status))
 }
