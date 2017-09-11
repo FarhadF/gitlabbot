@@ -1,7 +1,7 @@
 # GitlabBot
 GitlabBot is a gitlab merge request munger, with useful features.
 
-Usage:
+
 ```
 Golang implementation of Gitlab Munger, with following features:
 - Commenting
@@ -19,11 +19,11 @@ Flags:
   -P, --dbport int           Postgres database port number (default 5432)
   -u, --dbuser string        Gitlab database username (default "gitlab")
   -b, --gitlabbase string    Gitlab base url (default "http://localhost:10080")
+  -g, --gitlabbot string     Gitlab username for the bot, Case sensetive (default "gitlabbot")
   -t, --gitlabtoken string   Gitlab user token for API access (default "K8F8SZEHyq4Dm9osdTT3")
   -h, --help                 help for gitlabbot
   -l, --lgtmtreashold int    Number of LGTMs required to merge the request (default 2)
   -v, --version              Prints version info
-
 ```
 
 Setup: 
