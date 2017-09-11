@@ -48,7 +48,8 @@ type hook struct {
 }
 
 func gitlabbot(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string,
-	gitlabToken string, lgtmTreashold int) {
+	gitlabToken string, lgtmTreashold int, gitlabbot string) {
+
 	//Logger, _ = zap.NewDevelopment()
 	//defer Logger.Sync()
 	err := InitLogger()
@@ -108,7 +109,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 		if err == nil && count != 0 {
 			//fmt.Println("Number Of Comments:", count)
 			Logger.Info("", zap.String("number of comments", strconv.Itoa(count)))
-			lgtms, err := CheckLGTM(h)
+			lgtms, err := CheckLGTM(h, gitlabBot)
 			if err != nil {
 				//panic(err)
 				Logger.Panic("Error checking LGTMs", zap.String("error", err.Error()))
@@ -128,7 +129,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	} else if h.ObjectKind == "note" {
 		//fmt.Println("note")
 
-		err := CommentLGTM(h)
+		err := CommentLGTM(h, gitlabBot)
 		if err != nil {
 			//panic(err)
 			Logger.Panic("Error in comment LGTM", zap.String("error", err.Error()))
@@ -143,6 +144,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword string, gitlabBase string,
 	gitlabToken string, lgtmTreashold int) {
+	//Logger.Info("DB Name is", zap.String("DB:", dbname))
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		dbhost, dbport, dbuser, dbpassword, dbname)
@@ -167,7 +169,7 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 
 //Check the status of Merge Request, Im Processing Open and Not Merged only.
 func CheckStatus(h hook) (int, error) {
-	fmt.Println("beforequery:", h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
+	//fmt.Println("beforequery:", h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 	row := Db.QueryRow(`SELECT id FROM merge_requests WHERE target_project_id = $1 AND iid = $2 AND
  state != 'closed' AND state != 'merged'`, h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 	var id int
@@ -235,8 +237,9 @@ func Post(message string, h hook) {
 	Logger.Info("Post Response", zap.String("Status", resp.Status))
 }
 
-func CheckLGTM(h hook) (int, error) {
+func CheckLGTM(h hook, gitlabBot string) (int, error) {
 	//Find last push note
+	//Logger.Info("gitlabBot", zap.String("gitlabBot", gitlabBot))
 	var iiid int
 	if h.ObjectKind == "merge_request" {
 		iiid = h.ObjectAttributes.Iid
@@ -258,8 +261,8 @@ func CheckLGTM(h hook) (int, error) {
 	var lgtms int
 	//get number of LGTMs
 	row1 := Db.QueryRow(`select count(distinct u.username) from notes as n, users as u, merge_requests as m
-where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequest' and u.username != 'GitlabBot'
-and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note LIKE '%LGTM%'`, iiid, iiid, iid)
+where n.noteable_id = $1 and u.id = n.author_id and n.noteable_type = 'MergeRequest' and u.username != $2
+and u.id != m.author_id and m.id = $3 and n.id > $4 and n.system = 'f' and note LIKE '%LGTM%'`, iiid, gitlabBot, iiid, iid)
 	err = row1.Scan(&lgtms)
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		return 0, nil
@@ -273,22 +276,23 @@ and u.id != m.author_id and m.id = $2 and n.id > $3 and n.system = 'f' and note 
 	}
 }
 
-func CommentLGTM(h hook) error {
+func CommentLGTM(h hook, gitlabBot string) error {
 	//fmt.Println("Comment LGTM")
 	//fmt.Println(h.MergeRequest.Iid)
+	//Logger.Info("COmment", zap.String("gitlabBot", gitlabBot))
 	row := Db.QueryRow(`SELECT n.note FROM notes AS n, users AS u WHERE n.noteable_id = $1 AND u.id = n.author_id
- AND n.noteable_type = 'MergeRequest' AND u.username = 'GitlabBot' AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`,
-		h.MergeRequest.Iid)
+ AND n.noteable_type = 'MergeRequest' AND u.username = $2 AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`, h.MergeRequest.Iid, gitlabBot)
 	var lastComment string
 	err := row.Scan(&lastComment)
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		//fmt.Println(err)
 		lastComment = "I have no comments here"
 	} else if err != nil {
+		fmt.Println(err)
 		return err
 	}
 	var newComment string
-	lgtms, err := CheckLGTM(h)
+	lgtms, err := CheckLGTM(h, gitlabBot)
 	//fmt.Println("lgtms:", lgtms)
 	if lgtms < lgtmTreashold {
 		newComment = "Current number of LGTMs: " + strconv.Itoa(lgtms) + " Number of LGTMs required: " +

@@ -34,6 +34,7 @@ var (
 	gitlabBase    string
 	gitlabToken   string
 	lgtmTreashold int
+	gitlabBot     string
 )
 
 // RootCmd represents the base command when called without any subcommands
@@ -63,7 +64,7 @@ func rootCmd(cmd *cobra.Command, args []string) {
 	if versionFlag := getFlagBoolPtr(cmd, "version"); versionFlag != nil {
 		fmt.Println("GitlabBot v1.0.0")
 	} else {
-		gitlabbot(dbHost, dbPort, dbName, dbUser, dbPassword, gitlabBase, gitlabToken, lgtmTreashold)
+		gitlabbot(dbHost, dbPort, dbName, dbUser, dbPassword, gitlabBase, gitlabToken, lgtmTreashold, gitlabBot)
 	}
 }
 
@@ -102,7 +103,7 @@ func init() {
 	RootCmd.Flags().StringVarP(&gitlabBase, "gitlabbase", "b", "http://localhost:10080", "Gitlab base url")
 	RootCmd.Flags().StringVarP(&gitlabToken, "gitlabtoken", "t", "K8F8SZEHyq4Dm9osdTT3", "Gitlab user token for API access")
 	RootCmd.Flags().IntVarP(&lgtmTreashold, "lgtmtreashold", "l", 2, "Number of LGTMs required to merge the request")
-
+	RootCmd.Flags().StringVarP(&gitlabBot, "gitlabbot", "g", "gitlabbot", "Gitlab username for the bot, Case sensetive")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	//RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
