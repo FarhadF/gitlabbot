@@ -100,8 +100,12 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			//fmt.Println("No ROws!!")
 			Logger.Info("No Rows!")
 		} else if err != nil {
-			panic(err)
+			//panic(err)
+			Logger.Panic("CheckStatus Select Failed", zap.String("error", err.Error()))
+		} else if err == nil && id == 0 {
+			Logger.Info("ID == 0")
 		}
+
 		//fmt.Println("working id:", id)
 		Logger.Info("", zap.String("working id", strconv.Itoa(id)))
 
@@ -126,6 +130,7 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 			//panic(err)
 			Logger.Panic("Error in checkInitial", zap.String("Error", err.Error()))
 		}
+
 	} else if h.ObjectKind == "note" {
 		//fmt.Println("note")
 
@@ -174,8 +179,11 @@ func CheckStatus(h hook) (int, error) {
  state != 'closed' AND state != 'merged'`, h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 	var id int
 	err := row.Scan(&id)
-	if err != nil {
+	if err != nil && err.Error() == "sql: no rows in result set" {
 		//fmt.Println("Error in select:", err)
+		Logger.Info("No results", zap.String("error", err.Error()))
+		return 0, nil
+	} else if err != nil {
 		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
 	} else {
