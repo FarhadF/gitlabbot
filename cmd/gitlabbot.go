@@ -264,9 +264,9 @@ func CheckLGTM(h hook, gitlabBot string) (int, error) {
 	//Logger.Info("gitlabBot", zap.String("gitlabBot", gitlabBot))
 	var iiid int
 	if h.ObjectKind == "merge_request" {
-		iiid = h.ObjectAttributes.Iid
+		iiid = h.ObjectAttributes.Id
 	} else if h.ObjectKind == "note" {
-		iiid = h.MergeRequest.Iid
+		iiid = h.MergeRequest.Id
 	}
 
 	row := Db.QueryRow(`select id FROM notes where noteable_id = $1 and noteable_type = 'MergeRequest' and
@@ -361,7 +361,7 @@ func Put(h hook) {
 	//fmt.Println("Put")
 	client := &http.Client{}
 	u := gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
-		strconv.Itoa(h.MergeRequest.Iid) + "/merge"
+		strconv.Itoa(h.MergeRequest.Id) + "/merge"
 	r, err := http.NewRequest("PUT", u, nil)
 	r.Header.Set("PRIVATE-TOKEN", gitlabToken)
 	resp, err := client.Do(r)
