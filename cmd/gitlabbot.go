@@ -12,7 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
-	//"io/ioutil"
+
 )
 
 /*const (
@@ -43,6 +43,7 @@ type hook struct {
 		Iid             int    `json:"iid"`
 	} `json:"object_attributes"`
 	MergeRequest struct {
+		Id 				int	   `json:"id"`
 		Iid             int    `json:"iid"`
 		MergeStatus     string `json:"merge_status""`
 		State           string `json:"state"`
@@ -233,7 +234,8 @@ func Post(message string, h hook) {
 			strconv.Itoa(h.ObjectAttributes.Iid) + "/notes"
 	} else if h.ObjectKind == "note" {
 		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
-			strconv.Itoa(h.MergeRequest.Iid) + "/notes"
+			strconv.Itoa(h.MergeRequest.Id) + "/notes"
+		Logger.Info("url", zap.String(":",u))
 	} else {
 		u = ""
 	}
@@ -297,7 +299,7 @@ func CommentLGTM(h hook, gitlabBot string) error {
 	//fmt.Println(h.MergeRequest.Iid)
 	//Logger.Info("COmment", zap.String("gitlabBot", gitlabBot))
 	row := Db.QueryRow(`SELECT n.note FROM notes AS n, users AS u WHERE n.noteable_id = $1 AND u.id = n.author_id
- AND n.noteable_type = 'MergeRequest' AND u.username = $2 AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`, h.MergeRequest.Iid, gitlabBot)
+ AND n.noteable_type = 'MergeRequest' AND u.username = $2 AND n.system = 'f' ORDER BY n.id DESC LIMIT 1`, h.MergeRequest.Id, gitlabBot)
 	var lastComment string
 	err := row.Scan(&lastComment)
 	if err != nil && err.Error() == "sql: no rows in result set" {
