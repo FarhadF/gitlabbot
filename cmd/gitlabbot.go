@@ -181,9 +181,11 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 
 }
 
-//Check the status of Merge Request, Im Processing Open and Not Merged only.
+//Check the status of Merge Request, Im Processing Open and Not Merged only. return mergerequest id
 func CheckStatus(targetProjectId int, iid int) (int, error) {
 	//fmt.Println("beforequery:", h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
+	Logger.Info("checkstatus",zap.String("iid:",strconv.Itoa(iid)))
+	Logger.Info("checkstatus",zap.String("targetprojectid:",strconv.Itoa(targetProjectId)))
 	row := Db.QueryRow(`SELECT id FROM merge_requests WHERE target_project_id = $1 AND iid = $2 AND
  state != 'closed' AND state != 'merged'`, targetProjectId, iid)
 	var id int
@@ -202,8 +204,10 @@ func CheckStatus(targetProjectId int, iid int) (int, error) {
 
 func CheckInitial(h hook) (int, error) {
 	//fmt.Println("Check Initial")
-	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.iid = n.noteable_id and
- m.iid = $1 and target_project_id = $2`, h.ObjectAttributes.Iid, h.ObjectAttributes.TargetProjectId)
+	Logger.Info("CheckInitial",zap.Int("id", h.ObjectAttributes.Id))
+	Logger.Info("CheckInitial",zap.Int("id", h.ObjectAttributes.TargetProjectId))
+	row := Db.QueryRow(`select count(n.id) from merge_requests as m, notes as n where m.id = n.noteable_id and
+ m.id = $1 and target_project_id = $2`, h.ObjectAttributes.Id, h.ObjectAttributes.TargetProjectId)
 	var count int
 	err := row.Scan(&count)
 	if err != nil {
@@ -231,7 +235,7 @@ func Post(message string, h hook) {
 	var u string
 	if h.ObjectKind == "merge_request" {
 		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ObjectAttributes.TargetProjectId) + "/merge_requests/" +
-			strconv.Itoa(h.ObjectAttributes.Iid) + "/notes"
+			strconv.Itoa(h.ObjectAttributes.Id) + "/notes"
 	} else if h.ObjectKind == "note" {
 		u = gitlabBase + "/api/v3/projects/" + strconv.Itoa(h.ProjectId) + "/merge_requests/" +
 			strconv.Itoa(h.MergeRequest.Id) + "/notes"
