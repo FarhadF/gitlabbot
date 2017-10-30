@@ -304,7 +304,7 @@ func CommentLGTM(h hook, gitlabBot string) error {
 		//fmt.Println(err)
 		lastComment = "I have no comments here"
 	} else if err != nil {
-		fmt.Println(err)
+		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return err
 	}
 	var newComment string
