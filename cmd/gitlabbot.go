@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	//"io/ioutil"
 )
 
 /*const (
@@ -29,7 +30,7 @@ var Db *sql.DB
 var Logger *zap.Logger
 
 type hook struct {
-	ObjectKind       string `json:"object_kind"`
+	ObjectKind string `json:"object_kind"`
 	ObjectAttributes struct {
 		Id              int    `json:"id"`
 		TargetBranch    string `json:"target_branch"`
@@ -42,7 +43,10 @@ type hook struct {
 		Iid             int    `json:"iid"`
 	} `json:"object_attributes"`
 	MergeRequest struct {
-		Iid int `json:"iid"`
+		Iid             int    `json:"iid"`
+		MergeStatus     string `json:"merge_status""`
+		State           string `json:"state"`
+		TargetProjectId int    `json:"target_project_id"`
 	} `json:"merge_request"`
 	ProjectId int `json:"project_id"`
 }
@@ -76,9 +80,9 @@ func InitLogger() error {
 }
 
 func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
-	/*	read, _ := ioutil.ReadAll(r.Body)
-		fmt.Println(string(read))
-	*/
+	/*read, _ := ioutil.ReadAll(r.Body)
+	fmt.Println(string(read))
+    */
 	var h hook
 	err := json.NewDecoder(r.Body).Decode(&h)
 
@@ -95,49 +99,53 @@ func Handle(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	if h.ObjectKind == "merge_request" {
 		//fmt.Println("object is merge request")
 		Logger.Info("object is merge request")
-		id, err := CheckStatus(h)
+		id, err := CheckStatus(h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 		if err != nil && err.Error() == "sql: no rows in result set" {
 			//fmt.Println("No ROws!!")
 			Logger.Info("No Rows!")
 		} else if err != nil {
 			//panic(err)
 			Logger.Panic("CheckStatus Select Failed", zap.String("error", err.Error()))
-		} else if err == nil && id == 0 {
+		} /*else if err == nil && id == 0 {
 			Logger.Info("ID == 0")
-		}
+		} */
+		if id != 0 && err == nil {
+			//fmt.Println("working id:", id)
+			Logger.Info("", zap.String("working id", strconv.Itoa(id)))
 
-		//fmt.Println("working id:", id)
-		Logger.Info("", zap.String("working id", strconv.Itoa(id)))
+			count, err := CheckInitial(h)
+			if err == nil && count != 0 {
+				//fmt.Println("Number Of Comments:", count)
+				Logger.Info("", zap.String("number of comments", strconv.Itoa(count)))
+				lgtms, err := CheckLGTM(h, gitlabBot)
+				if err != nil {
+					//panic(err)
+					Logger.Panic("Error checking LGTMs", zap.String("error", err.Error()))
+				}
+				//fmt.Println("Number of LGTMs:", lgtms)
+				Logger.Info("", zap.String("Number of LGTMs", strconv.Itoa(lgtms)))
 
-		count, err := CheckInitial(h)
-		if err == nil && count != 0 {
-			//fmt.Println("Number Of Comments:", count)
-			Logger.Info("", zap.String("number of comments", strconv.Itoa(count)))
-			lgtms, err := CheckLGTM(h, gitlabBot)
-			if err != nil {
+			} else if err == nil && count == 0 {
+				InitialComment(h)
+				//	if err != nil {
+				//		panic(err)
+				//	}
+			} else {
 				//panic(err)
-				Logger.Panic("Error checking LGTMs", zap.String("error", err.Error()))
+				Logger.Panic("Error in checkInitial", zap.String("Error", err.Error()))
 			}
-			//fmt.Println("Number of LGTMs:", lgtms)
-			Logger.Info("", zap.String("Number of LGTMs", strconv.Itoa(lgtms)))
-
-		} else if err == nil && count == 0 {
-			InitialComment(h)
-			//	if err != nil {
-			//		panic(err)
-			//	}
 		} else {
-			//panic(err)
-			Logger.Panic("Error in checkInitial", zap.String("Error", err.Error()))
+			Logger.Info("ID==0 and",zap.String("error:", err.Error()))
 		}
-
 	} else if h.ObjectKind == "note" {
 		//fmt.Println("note")
-
-		err := CommentLGTM(h, gitlabBot)
-		if err != nil {
-			//panic(err)
-			Logger.Panic("Error in comment LGTM", zap.String("error", err.Error()))
+		_, err := CheckStatus(h.MergeRequest.TargetProjectId, h.MergeRequest.Iid)
+		if err == nil {
+			err := CommentLGTM(h, gitlabBot)
+			if err != nil {
+				//panic(err)
+				Logger.Panic("Error in comment LGTM", zap.String("error", err.Error()))
+			}
 		}
 	}
 
@@ -173,16 +181,16 @@ func InitDb(dbhost string, dbport int, dbname string, dbuser string, dbpassword 
 }
 
 //Check the status of Merge Request, Im Processing Open and Not Merged only.
-func CheckStatus(h hook) (int, error) {
+func CheckStatus(targetProjectId int, iid int) (int, error) {
 	//fmt.Println("beforequery:", h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
 	row := Db.QueryRow(`SELECT id FROM merge_requests WHERE target_project_id = $1 AND iid = $2 AND
- state != 'closed' AND state != 'merged'`, h.ObjectAttributes.TargetProjectId, h.ObjectAttributes.Iid)
+ state != 'closed' AND state != 'merged'`, targetProjectId, iid)
 	var id int
 	err := row.Scan(&id)
 	if err != nil && err.Error() == "sql: no rows in result set" {
 		//fmt.Println("Error in select:", err)
-		Logger.Info("No results", zap.String("error", err.Error()))
-		return 0, nil
+		Logger.Info("Merge request is not open/Mergable/Exists", zap.String("error", err.Error()))
+		return 0, err
 	} else if err != nil {
 		Logger.Error("Error in select", zap.String("error", err.Error()))
 		return 0, err
