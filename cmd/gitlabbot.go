@@ -347,7 +347,7 @@ func CommentLGTM(h hook, gitlabBot string) error {
 
 func CheckMergable(h hook) (string, error) {
 	//fmt.Println("Check Mergable")
-	row := Db.QueryRow(`SELECT m.merge_status FROM merge_requests AS m WHERE m.id = $1`, h.MergeRequest.Iid)
+	row := Db.QueryRow(`SELECT merge_status FROM merge_requests AS m WHERE id = $1`, h.MergeRequest.Id)
 	var mergeStatus string
 	err := row.Scan(&mergeStatus)
 	if err != nil {
